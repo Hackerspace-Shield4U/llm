@@ -1,0 +1,75 @@
+id: auto-gen-panel-1
+info:
+  name: Auto-detected panel
+  author: ksko
+  severity: high
+  description: Sensitive admin/login endpoints referenced (e.g., login.php), and page
+    includes known high-risk patterns (/phpinfo.php, LFI with ?page=) that elevate
+    overall risk and justify panel discovery checks.
+  reference: []
+  tags:
+  - panel
+  metadata:
+    source: auto-pipeline
+    rule: panel
+http:
+- method: GET
+  path:
+  - '{{BaseURL}}/recaptcha/admin/create'
+  - '{{BaseURL}}/dvwa/login.php'
+  redirects: true
+  max-redirects: 2
+  stop-at-first-match: true
+  matchers-condition: and
+  matchers:
+  - type: status
+    status:
+    - 200
+    - 302
+    - 401
+    - 403
+  - type: word
+    words:
+    - login
+    - admin
+    - sign in
+    condition: or
+    part: body
+---
+id: auto-gen-login-2
+info:
+  name: Auto-detected login
+  author: ksko
+  severity: high
+  description: Login endpoint detected (login.php). Presence of other vulnerable patterns
+    on the same page (/phpinfo.php, LFI with ?page=) increases likelihood of weak
+    authentication/misconfiguration and warrants login/bruteforce checks.
+  reference: []
+  tags:
+  - login
+  metadata:
+    source: auto-pipeline
+    rule: login
+http:
+- method: GET
+  path:
+  - '{{BaseURL}}/recaptcha/admin/create'
+  - '{{BaseURL}}/dvwa/login.php'
+  redirects: true
+  max-redirects: 2
+  stop-at-first-match: true
+  matchers-condition: and
+  matchers:
+  - type: status
+    status:
+    - 200
+    - 302
+    - 401
+    - 403
+  - type: word
+    words:
+    - login
+    - admin
+    - sign in
+    condition: or
+    part: body

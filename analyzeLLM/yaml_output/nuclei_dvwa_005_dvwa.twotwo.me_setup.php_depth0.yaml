@@ -1,0 +1,26 @@
+id: auto-gen-info-leak-1
+info:
+  name: Auto-detected info-leak
+  author: ksko
+  severity: medium
+  description: heuristic decision (no-LLM)
+  reference: []
+  tags:
+  - info-leak
+  metadata:
+    source: auto-pipeline
+    rule: info-leak
+http:
+- method: GET
+  path:
+  - '{{BaseURL}}/'
+  redirects: true
+  max-redirects: 2
+  stop-at-first-match: true
+  matchers:
+  - type: status
+    status:
+    - 200
+    - 302
+    - 401
+    - 403

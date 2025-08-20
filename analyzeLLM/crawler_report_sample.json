@@ -1,0 +1,38 @@
+{
+  "url": "http://testsite.local/",
+  "dom": {
+    "title": "Admin Login Page",
+    "forms": [
+      {
+        "action": "/login",
+        "method": "POST",
+        "inputs": ["username", "password"]
+      }
+    ],
+    "visible_links": [
+      "http://testsite.local/admin",
+      "http://testsite.local/wp-login.php"
+    ],
+    "meta": {
+      "generator": "WordPress 6.2"
+    },
+    "scripts": [
+      "http://testsite.local/wp-content/plugins/sample-plugin/script.js"
+    ],
+    "links": [
+      "http://testsite.local/wp-content/themes/twentytwentythree/style.css"
+    ],
+    "comments_or_text_leaks": [
+      {"type": "api_key", "value": "AIzaSyFakeKeyExample"},
+      {"type": "stack", "value": "Traceback (most recent call last): ..."}
+    ]
+  },
+  "fingerprints": {
+    "tech": ["nginx", "php", "mysql"]
+  },
+  "osint_exposure": {
+    "emails": ["security@testsite.local"],
+    "socials": ["https://twitter.com/testsite"],
+    "open_directory_ui": ["http://testsite.local/files/"]
+  }
+}

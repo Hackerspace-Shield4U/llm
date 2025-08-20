@@ -1,0 +1,95 @@
+{
+  "url": "https://dvwa.twotwo.me/login.php",
+  "depth": 0,
+  "method": "GET",
+  "crawled_at": "2025-08-20T16:28:23",
+  "dom": {
+    "title": "Login :: Damn Vulnerable Web Application (DVWA) v1.10 *Development*",
+    "meta": {},
+    "scripts": [],
+    "links": [
+      "https://dvwa.twotwo.me/dvwa/css/login.css"
+    ],
+    "comments_or_text_leaks": [
+      {
+        "type": "html_comment",
+        "snippet": "<div id=\"header\">"
+      },
+      {
+        "type": "html_comment",
+        "snippet": "<img src=\"dvwa/images/RandomStorm.png\" />"
+      },
+      {
+        "type": "html_comment",
+        "snippet": "<div id=\"content\">"
+      },
+      {
+        "type": "html_comment",
+        "snippet": "<div id=\"footer\">"
+      },
+      {
+        "type": "html_comment",
+        "snippet": "<div id=\"wrapper\">"
+      }
+    ],
+    "forms": [
+      {
+        "action": "https://dvwa.twotwo.me/login.php",
+        "method": "POST",
+        "enctype": "application/x-www-form-urlencoded",
+        "inputs": [
+          "username",
+          "password",
+          "Login",
+          "user_token"
+        ]
+      }
+    ],
+    "visible_links": [
+      "http://www.dvwa.co.uk/"
+    ],
+    "visible_text_sample": "Login :: Damn Vulnerable Web Application (DVWA) v1.10 *Development* Username Password You have logged out Damn Vulnerable Web Application (DVWA)"
+  },
+  "fingerprints": {},
+  "panel_login_signals": {},
+  "osint_exposure": {},
+  "attack_vectors": {
+    "forms": [
+      {
+        "action": "https://dvwa.twotwo.me/login.php",
+        "method": "POST",
+        "enctype": "application/x-www-form-urlencoded",
+        "inputs": [
+          "username",
+          "password",
+          "Login",
+          "user_token"
+        ]
+      }
+    ],
+    "links": [
+      "http://www.dvwa.co.uk/"
+    ],
+    "admin_panels": [
+      "https://dvwa.twotwo.me/login.php"
+    ]
+  },
+  "forms": [
+    {
+      "action": "https://dvwa.twotwo.me/login.php",
+      "method": "POST",
+      "enctype": "application/x-www-form-urlencoded",
+      "inputs": [
+        "username",
+        "password",
+        "Login",
+        "user_token"
+      ]
+    }
+  ],
+  "js_functions": {
+    "local_storage": [],
+    "session_storage": []
+  },
+  "cookies_discovered": {}
+}

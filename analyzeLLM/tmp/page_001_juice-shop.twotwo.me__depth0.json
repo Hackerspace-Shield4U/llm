@@ -1,0 +1,78 @@
+{
+  "url": "https://juice-shop.twotwo.me/#/",
+  "depth": 0,
+  "method": "GET",
+  "crawled_at": "2025-08-20T15:26:57",
+  "dom": {
+    "title": "OWASP Juice Shop",
+    "meta": {
+      "description": "Probably the most modern and sophisticated insecure web application",
+      "viewport": "width=device-width, initial-scale=1"
+    },
+    "scripts": [
+      "https://cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.1.0/cookieconsent.min.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js",
+      "https://juice-shop.twotwo.me/runtime.js",
+      "https://juice-shop.twotwo.me/polyfills.js",
+      "https://juice-shop.twotwo.me/vendor.js",
+      "https://juice-shop.twotwo.me/main.js"
+    ],
+    "links": [
+      "https://juice-shop.twotwo.me/assets/public/favicon_js.ico",
+      "https://cdnjs.cloudflare.com/ajax/libs/cookieconsent2/3.1.0/cookieconsent.min.css",
+      "https://juice-shop.twotwo.me/styles.css",
+      "https://juice-shop.twotwo.me/styles.css"
+    ],
+    "comments_or_text_leaks": [
+      {
+        "type": "html_comment",
+        "snippet": "googleoff: all"
+      },
+      {
+        "type": "html_comment",
+        "snippet": "googleon: all"
+      },
+      {
+        "type": "html_comment",
+        "snippet": "<mat-icon _ngcontent-ng-c4010575210=\"\" role=\"img\" matlisticon=\"\" class=\"mat-icon notranslate fab fa-github fa-lg material-icons mat-ligature-font mat-icon-no-color\" aria-hidden=\"true\" data-mat-icon-ty"
+      }
+    ],
+    "forms": [],
+    "visible_links": [
+      "https://juice-shop.twotwo.me/#/photo-wall",
+      "https://juice-shop.twotwo.me/#/about",
+      "https://owasp.org",
+      "https://owasp-juice.shop",
+      "https://juice-shop.twotwo.me/#/login",
+      "https://www.youtube.com/watch?v=9PnbKL3wuH4",
+      "https://juice-shop.twotwo.me/#/contact",
+      "https://juice-shop.twotwo.me/redirect?to=https://github.com/juice-shop/juice-shop"
+    ],
+    "visible_text_sample": "OWASP Juice Shop This website uses fruit cookies to ensure you get the juiciest tracking experience. But me wait!Me want it! OWASP Juice ShopAccount exit_to_app Login Contactfeedback Customer Feedback Companybusiness_center About Us camera Photo Wall school Help getting started GitHub OWASP Juice Shopv18.0.0 menu OWASP Juice Shop close search account_circle Account language EN All Products Items per page: 12 0 of 0 Open side menuChoose languageLaunch a tutorial to get you started hacking the Jui..."
+  },
+  "fingerprints": {},
+  "panel_login_signals": {},
+  "osint_exposure": {},
+  "attack_vectors": {
+    "forms": [],
+    "links": [
+      "https://juice-shop.twotwo.me/#/photo-wall",
+      "https://juice-shop.twotwo.me/#/about",
+      "https://owasp.org",
+      "https://owasp-juice.shop",
+      "https://juice-shop.twotwo.me/#/login",
+      "https://www.youtube.com/watch?v=9PnbKL3wuH4",
+      "https://juice-shop.twotwo.me/#/contact",
+      "https://juice-shop.twotwo.me/redirect?to=https://github.com/juice-shop/juice-shop"
+    ],
+    "admin_panels": [
+      "https://juice-shop.twotwo.me/#/login"
+    ]
+  },
+  "forms": [],
+  "js_functions": {
+    "local_storage": [],
+    "session_storage": []
+  },
+  "cookies_discovered": {}
+}
