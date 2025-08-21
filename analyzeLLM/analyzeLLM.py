@@ -277,11 +277,178 @@ def detect_osint(report: Dict[str, Any]) -> List[Dict[str, Any]]: # OSINT 노출
         })
     return out
 
+def detect_form_vulnerabilities(report: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """폼이 발견되면 기본적인 웹 취약점 테스트 자동 생성"""
+    findings = []
+    
+    # DOM에서 폼 데이터 추출
+    dom = report.get("dom", {})
+    forms = dom.get("forms", []) or []
+    attack_vectors = report.get("attack_vectors", {})
+    form_vectors = attack_vectors.get("forms", []) if attack_vectors else []
+    
+    all_forms = forms + form_vectors
+    if not all_forms:
+        return findings
+    
+    base_url = top_base(report.get("url", ""))
+    form_actions = []
+    
+    for form in all_forms:
+        if isinstance(form, dict):
+            action = form.get("action", "")
+            method = form.get("method", "GET").upper()
+            inputs = form.get("inputs", [])
+            
+            # 폼 액션 URL 정규화
+            if action:
+                if action.startswith("http"):
+                    form_actions.append(action)
+                else:
+                    # 상대 경로를 절대 경로로 변환
+                    if action.startswith("/"):
+                        form_actions.append(base_url.rstrip("/") + action)
+                    else:
+                        form_actions.append(base_url.rstrip("/") + "/" + action)
+            
+            # GET/POST 폼이 있으면 SQL Injection 테스트 생성 (GET 폼도 SQL injection 가능)
+            if inputs and len(inputs) > 0:
+                findings.append({
+                    "tag": "sqli",
+                    "confidence": "high",  # GET 폼도 SQL injection 위험
+                    "reason": f"{method} 폼 발견 (action={action}, inputs={len(inputs)}개) - SQL Injection 가능성",
+                    "targets": [action] if action else [base_url],
+                    "suggested_templates": ["tags:sqli", "tags:injection", "tags:sqli-blind"]
+                })
+                
+                # XSS 테스트도 추가 (GET/POST 모두 XSS 가능)
+                if method == "POST":
+                    findings.append({
+                        "tag": "xss",
+                        "confidence": "high", 
+                        "reason": f"POST 입력 폼 발견 - XSS 가능성 테스트",
+                        "targets": [action] if action else [base_url],
+                        "suggested_templates": ["tags:xss", "tags:xss-reflected", "tags:xss-stored"]
+                    })
+                else:
+                    findings.append({
+                        "tag": "xss",
+                        "confidence": "medium", 
+                        "reason": f"GET 입력 폼 발견 - XSS 가능성 테스트",
+                        "targets": [action] if action else [base_url],
+                        "suggested_templates": ["tags:xss", "tags:xss-reflected"]
+                    })
+    
+    # 일반적인 웹 취약점 스캔 추가 (폼이 하나라도 있으면)
+    if all_forms:
+        findings.append({
+            "tag": "web-vuln",
+            "confidence": "high",
+            "reason": f"웹 애플리케이션 감지 ({len(all_forms)}개 폼) - 일반 취약점 스캔",
+            "targets": form_actions[:5] if form_actions else [base_url],
+            "suggested_templates": ["tags:lfi", "tags:rfi", "tags:directory-traversal", "tags:file-upload", "tags:csrf"]
+        })
+    
+    return findings
+
+def add_universal_web_templates(report: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """웹 애플리케이션에 대해 기본적인 모든 웹 취약점 템플릿을 추가"""
+    findings = []
+    base_url = top_base(report.get("url", ""))
+    
+    # 기본 웹 취약점 템플릿들 - 모든 웹사이트에 적용
+    universal_templates = [
+        {
+            "tag": "sqli",
+            "confidence": "medium",
+            "reason": "웹 애플리케이션 감지 - SQL Injection 기본 스캔",
+            "targets": [base_url],
+            "suggested_templates": ["tags:sqli", "tags:injection", "tags:sqli-blind", "tags:sqli-time", "tags:mysql", "tags:postgresql", "tags:oracle"]
+        },
+        {
+            "tag": "xss",
+            "confidence": "medium", 
+            "reason": "웹 애플리케이션 감지 - XSS 기본 스캔",
+            "targets": [base_url],
+            "suggested_templates": ["tags:xss", "tags:xss-reflected", "tags:xss-stored", "tags:xss-dom"]
+        },
+        {
+            "tag": "lfi",
+            "confidence": "medium",
+            "reason": "웹 애플리케이션 감지 - Local File Inclusion 스캔", 
+            "targets": [base_url],
+            "suggested_templates": ["tags:lfi", "tags:file-read", "tags:path-traversal"]
+        },
+        {
+            "tag": "rfi",
+            "confidence": "medium",
+            "reason": "웹 애플리케이션 감지 - Remote File Inclusion 스캔",
+            "targets": [base_url], 
+            "suggested_templates": ["tags:rfi", "tags:file-inclusion"]
+        },
+        {
+            "tag": "directory-traversal",
+            "confidence": "medium",
+            "reason": "웹 애플리케이션 감지 - Directory Traversal 스캔",
+            "targets": [base_url],
+            "suggested_templates": ["tags:directory-traversal", "tags:path-traversal"]
+        },
+        {
+            "tag": "csrf",
+            "confidence": "low",
+            "reason": "웹 애플리케이션 감지 - CSRF 기본 스캔",
+            "targets": [base_url],
+            "suggested_templates": ["tags:csrf"]
+        },
+        {
+            "tag": "auth-bypass",
+            "confidence": "medium",
+            "reason": "웹 애플리케이션 감지 - Authentication Bypass 스캔",
+            "targets": [base_url],
+            "suggested_templates": ["tags:auth-bypass", "tags:authentication"]
+        },
+        {
+            "tag": "info-disclosure",
+            "confidence": "medium",
+            "reason": "웹 애플리케이션 감지 - Information Disclosure 스캔",
+            "targets": [base_url],
+            "suggested_templates": ["tags:info-disclosure", "tags:exposure", "tags:config"]
+        }
+    ]
+    
+    findings.extend(universal_templates)
+    
+    # URL 패턴 기반 추가 템플릿
+    url = report.get("url", "").lower()
+    if any(pattern in url for pattern in ['/admin', '/login', '/dashboard', '/panel']):
+        findings.append({
+            "tag": "brute-force",
+            "confidence": "high",
+            "reason": "관리자/로그인 페이지 감지 - Brute Force 스캔",
+            "targets": [base_url],
+            "suggested_templates": ["tags:brute-force", "tags:login", "tags:default-creds"]
+        })
+    
+    if any(pattern in url for pattern in ['.php', '.asp', '.jsp', '/api']):
+        findings.append({
+            "tag": "rce",
+            "confidence": "medium", 
+            "reason": "동적 웹페이지/API 감지 - RCE 스캔",
+            "targets": [base_url],
+            "suggested_templates": ["tags:rce", "tags:command-injection", "tags:code-injection"]
+        })
+        
+    return findings
+
 def build_raw_findings(report: Dict[str, Any]) -> List[Dict[str, Any]]: # 위의 모든 감지기들을 순차적으로 실행하여 원시 findings 리스트를 만듦
-    detectors = [detect_panel_login, detect_cms_stack, detect_tech, detect_exposure, detect_osint]
+    detectors = [detect_panel_login, detect_cms_stack, detect_tech, detect_exposure, detect_osint, detect_form_vulnerabilities]
     findings = []
     for det in detectors:
         findings.extend(det(report))
+    
+    # 🔥 UNIVERSAL WEB TEMPLATES: 모든 웹 애플리케이션에 기본 템플릿들 추가
+    findings.extend(add_universal_web_templates(report))
+    
     return findings
 
 # -------------------------
@@ -299,19 +466,36 @@ class LLMGateOutput(BaseModel): # LLM 전체 판정 결과 구조체(전체 위�
     overall_risk: str = Field(..., description="none|low|medium|high|critical")
     decisions: List[LLMFindingDecision]
 
-SYSTEM_PROMPT = """You are a defensive security triage assistant.
+SYSTEM_PROMPT = """You are an EXTREMELY AGGRESSIVE security vulnerability scanner assistant. Your primary goal is MAXIMUM COVERAGE of all possible vulnerabilities.
 
-RULES:
-- If any URLs include known vulnerable patterns (e.g., /sqli/, /fi/, /phpinfo.php, ?page=), elevate severity to 'high' AND set run_template=true.
-- If the input suggests sensitive endpoints (e.g., login.php, admin/, debug/, test/, api/token), increase severity and consider scanning.
-- If any tag appears suspicious enough to justify scanning (even from minimal-check), set run_template=true.
-- If run_template is true, you MUST also suggest appropriate nuclei scanner tags in the field suggested_templates (e.g., ["tags:sqli"]).
-- If the input tag is too generic (e.g., "minimal-check"), and you detect a known vulnerability pattern, you MUST replace the tag with a more specific one: "sqli", "lfi", "debug-info-leak", "exposure", "listing", "login", or "panel".
-- The tag must match the vulnerability type, and will be used as a scanner rule key.
-- Do NOT fabricate payloads, exploits, or non-existent template names.
-- Output STRICT JSON only. No markdown, no comments.
-- Base your analysis ONLY on the input JSON.
-- Cite OWASP or CWE references where appropriate.
+CRITICAL RULES (ALWAYS FOLLOW):
+- DEFAULT to run_template=true for ALL findings unless absolutely certain it's irrelevant
+- ALWAYS set run_template=true for: sqli, xss, lfi, rfi, csrf, directory-traversal, auth-bypass, brute-force, rce, file-upload, info-disclosure
+- EVERY web application should be scanned for ALL common vulnerabilities regardless of evidence
+- If ANY form exists (GET or POST), IMMEDIATELY set run_template=true for sqli, xss, csrf
+- If ANY dynamic content detected (.php, .asp, .jsp, /api, parameters), IMMEDIATELY set run_template=true for rce, sqli, lfi
+- If ANY admin/login patterns (/admin, /login, /panel, /dashboard), IMMEDIATELY set run_template=true for brute-force, auth-bypass
+- MINIMUM overall_risk should be "medium" for any web application
+- MINIMUM severity should be "medium" for all major vulnerability types
+
+EXTREME AGGRESSION POLICY:
+- Consider EVERY URL as potentially vulnerable until proven otherwise  
+- Assume ALL forms are vulnerable to injection attacks
+- Assume ALL file parameters are vulnerable to LFI/RFI/traversal
+- Assume ALL authentication mechanisms can be bypassed or brute-forced
+- For ANY suspicious URL patterns, SET run_template=true AND severity="high"
+
+TEMPLATE SELECTION:
+- Use MULTIPLE tags per vulnerability type for maximum coverage
+- Examples: ["tags:sqli", "tags:sqli-blind", "tags:sqli-time", "tags:injection", "tags:mysql", "tags:postgresql"]
+- Examples: ["tags:xss", "tags:xss-reflected", "tags:xss-stored", "tags:xss-dom"]
+- Examples: ["tags:lfi", "tags:rfi", "tags:file-read", "tags:path-traversal", "tags:directory-traversal"]
+
+OUTPUT REQUIREMENTS:
+- Output STRICT JSON only
+- NEVER use run_template=false unless explicitly justified
+- When in doubt, ALWAYS choose run_template=true
+- Reference OWASP Top 10, CWE numbers when applicable
 """
 
 USER_PROMPT_TEMPLATE = """Input JSON (from crawler):
@@ -460,36 +644,42 @@ SEV_ORDER = ["none", "low", "medium", "high", "critical"]
 
 def heuristic_gate(raw_findings: List[Dict[str, Any]]) -> LLMGateOutput:
     decisions = []
-    # 단순 정책: exposure > panel/login > wp-plugins > wordpress > tech > others
+    # 🔥 AGGRESSIVE POLICY: 모든 웹 취약점에 대해 포괄적으로 템플릿 실행
     for f in raw_findings:
         tag = f["tag"]
-        sev = "low"
-        run = False
+        sev = "medium"  # 기본값을 medium으로 상향
+        run = True      # 기본값을 True로 변경 (적극적 스캔)
 
-        if tag == "exposure":
+        # 고위험 취약점들
+        if tag in ("exposure", "sqli", "xss", "rce", "lfi", "rfi"):
             sev, run = "high", True
-        elif tag in ("panel", "login"):
+        # 중간 위험 취약점들
+        elif tag in ("panel", "login", "wp-plugins", "csrf", "file-upload", "directory-traversal"):
             sev, run = "medium", True
-        elif tag in ("wp-plugins",):
+        # CMS 및 기술 스택 취약점들
+        elif tag in ("wordpress", "cms", "joomla", "drupal", "php", "apache", "nginx"):
             sev, run = "medium", True
-        elif tag in ("wordpress", "cms", "joomla"):
-            sev, run = "low", True
-        elif tag in ("logs", "debug", "info-leak"):
+        # 정보 누출 관련
+        elif tag in ("logs", "debug", "info-leak", "config-exposure"):
             sev, run = "medium", True
+        # 웹 애플리케이션 일반 취약점들
+        elif tag in ("web-vuln", "auth-bypass", "brute-force", "session-fixation"):
+            sev, run = "high", True
+        # 기술 정보 수집도 스캔 대상으로 포함
         elif tag in ("tech", "osint", "osint-social", "listing"):
-            sev, run = "low", False  # 정보성
+            sev, run = "low", True   # 정보성이지만 스캔은 수행
 
         decisions.append(LLMFindingDecision(
             tag=tag,
             looks_vulnerable=run,
             severity=sev,
-            rationale="heuristic decision (no-LLM)",
+            rationale="aggressive heuristic policy - comprehensive vulnerability scanning",
             references=[],
             run_template=run
         ))
 
-    # overall_risk = 최고 등급
-    max_sev = "none"
+    # overall_risk = 최고 등급 (최소 medium으로 설정)
+    max_sev = "medium"  # 기본 최소 위험도를 medium으로 설정
     for d in decisions:
         if SEV_ORDER.index(d.severity) > SEV_ORDER.index(max_sev):
             max_sev = d.severity
@@ -539,19 +729,35 @@ def run_pipeline_from_report(report: Dict[str, Any], allow: str = DEFAULT_ALLOW)
     allow_tags = set([t.strip() for t in (allow or "").split(",") if t.strip()])
     raw_findings = build_raw_findings(report)
 
-    # 🔥 완화 정책: 너무 findings가 적으면 LLM 시도 유도
-    if len(raw_findings) == 0:
-        print("[ℹ️] Finding 없음: LLM 기반 탐색 시도 중...")
-        dummy_finding = {
-            "tag": "minimal-check",
-            "confidence": "low",
-            "reason": "No raw finding; sending dummy input to LLM for conservative check",
-            "targets": [top_base(report.get("url", ""))],
-            "suggested_templates": []
-        }
-        raw_findings = [dummy_finding]
+    # 🔥 AGGRESSIVE POLICY: findings가 적더라도 기본 웹 취약점들을 강제로 추가
+    if len(raw_findings) < 5:  # 기본 템플릿 수보다 적으면 더 추가
+        print(f"[⚡] 공격적 정책: {len(raw_findings)}개 findings 감지, 추가 기본 템플릿들 강제 추가")
+        base_url = top_base(report.get("url", ""))
+        # 최소한의 기본 템플릿들은 무조건 실행
+        mandatory_templates = [
+            {
+                "tag": "comprehensive-scan",
+                "confidence": "high",
+                "reason": "웹 애플리케이션 대상 - 포괄적 기본 취약점 스캔 강제 실행",
+                "targets": [base_url],
+                "suggested_templates": [
+                    "tags:sqli", "tags:xss", "tags:lfi", "tags:rfi", 
+                    "tags:directory-traversal", "tags:auth-bypass", 
+                    "tags:info-disclosure", "tags:csrf", "tags:brute-force"
+                ]
+            }
+        ]
+        raw_findings.extend(mandatory_templates)
 
+    # LLM 게이트 실행 (실패 시 휴리스틱 폴백)
     gate = call_llm_gate(report, raw_findings) or heuristic_gate(raw_findings)
+    
+    # 🔥 SAFETY NET: LLM이 너무 보수적이면 휴리스틱으로 강제 오버라이드
+    run_count = sum(1 for d in gate.decisions if d.run_template)
+    if run_count < 3:  # 실행할 템플릿이 3개 미만이면
+        print(f"[⚡] LLM 너무 보수적 ({run_count}개 실행) - 휴리스틱 정책으로 강제 오버라이드")
+        gate = heuristic_gate(raw_findings)
+    
     to_run, to_skip = split_to_run_skip(raw_findings, gate, allow_tags)
     return {"overall_risk": gate.overall_risk, "to_run": to_run, "to_skip": to_skip}
 

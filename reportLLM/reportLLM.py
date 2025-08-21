@@ -1,46 +1,204 @@
-# llm_report.py
-# ----------------------------------------------------------------
-# Jupyter Notebook 셀들을 하나의 실행 가능한 Python 스크립트로 변환한 파일입니다.
-# ----------------------------------------------------------------
+#!/usr/bin/env python3
+"""
+Shield4U Report LLM Module
+Generates comprehensive security reports from vulnerability scan results
+"""
 
 import os
-import sys
 import json
-import datetime
-import subprocess
-from getpass import getpass
-from typing import Any, Dict, List
-
-# --- 1. 의존성 설치 ---
-# 스크립트 실행에 필요한 라이브러리를 확인하고 설치합니다.
-
-def pip_install(pkg: str):
-    """지정된 패키지를 pip를 사용하여 설치합니다."""
-    try:
-        __import__(pkg.split('>')[0].split('=')[0])
-    except ImportError:
-        print(f'Installing missing package: {pkg}')
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', pkg])
-
-# 필요한 라이브러리 목록
-REQUIRED_PACKAGES = [
-    'openai>=1.40.0',
-    'matplotlib>=3.7.0',
-    'pandas',
-    'numpy'
-]
-
-for package in REQUIRED_PACKAGES:
-    pip_install(package)
-
-# 라이브러리 임포트
+import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 from openai import OpenAI
-import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
 
+# Configure logging
+logger = logging.getLogger(__name__)
 
-# --- 2. 기본 설정 및 LLM 함수 정의 ---
+# OpenAI configuration
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+def _get_openai_client():
+    """Get OpenAI client with error handling"""
+    if not OPENAI_API_KEY:
+        raise ValueError("OpenAI API key not configured")
+    
+    return OpenAI(api_key=OPENAI_API_KEY)
+
+def generate_security_report(report_input: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate comprehensive security report from scan results
+    
+    Args:
+        report_input: Dictionary containing:
+            - parent_guid: Scan identifier
+            - target_url: Target URL that was scanned
+            - scan_results: List of Nuclei scan findings
+            - crawl_results: Original crawl results
+            - analysis_summary: Summary from LLM analysis
+            - scan_timestamp: Timestamp of the scan
+    
+    Returns:
+        Dictionary containing the generated report sections
+    """
+    try:
+        client = _get_openai_client()
+        
+        parent_guid = report_input.get('parent_guid', 'unknown')
+        target_url = report_input.get('target_url', 'unknown')
+        scan_results = report_input.get('scan_results', [])
+        crawl_results = report_input.get('crawl_results', [])
+        analysis_summary = report_input.get('analysis_summary', '')
+        scan_timestamp = report_input.get('scan_timestamp', datetime.now().isoformat())
+        
+        logger.info(f"Generating report for {parent_guid} with {len(scan_results)} findings")
+        
+        # Prepare data for LLM
+        findings_summary = []
+        for result in scan_results:
+            if isinstance(result, dict):
+                findings_summary.append({
+                    'name': result.get('template_id', 'Unknown'),
+                    'severity': result.get('severity', 'info'),
+                    'url': result.get('matched_url', target_url),
+                    'description': result.get('description', ''),
+                    'info': result.get('info', {})
+                })
+        
+        # Create prompt for report generation
+        prompt = f"""
+        Generate a comprehensive cybersecurity vulnerability assessment report based on the following scan results:
+
+        **Target Information:**
+        - Target URL: {target_url}
+        - Scan GUID: {parent_guid}
+        - Scan Date: {scan_timestamp}
+        - Total Findings: {len(scan_results)}
+        - Pages Crawled: {len(crawl_results)}
+
+        **Analysis Summary:**
+        {analysis_summary}
+
+        **Detailed Findings:**
+        {json.dumps(findings_summary, indent=2)}
+
+        Please generate a professional security assessment report with the following sections:
+
+        1. **Executive Summary**: High-level overview of security posture and key risks
+        2. **Technical Details**: Detailed analysis of each vulnerability found
+        3. **Risk Assessment**: Impact analysis and prioritization
+        4. **Recommendations**: Specific remediation steps and security improvements
+        5. **Methodology**: Brief description of the scanning approach used
+
+        Format the report in a professional manner suitable for both technical and management audiences.
+        Focus on actionable recommendations and clear risk communication.
+        """
+        
+        # Generate report using OpenAI
+        response = client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "You are a cybersecurity expert generating professional vulnerability assessment reports. Focus on clear communication, accurate risk assessment, and actionable recommendations."
+                },
+                {
+                    "role": "user", 
+                    "content": prompt
+                }
+            ],
+            max_tokens=4000,
+            temperature=0.3
+        )
+        
+        full_report = response.choices[0].message.content
+        
+        # Parse the generated report into sections
+        report_sections = _parse_report_sections(full_report)
+        
+        # Add metadata
+        report_sections.update({
+            'scan_metadata': {
+                'parent_guid': parent_guid,
+                'target_url': target_url,
+                'scan_timestamp': scan_timestamp,
+                'total_findings': len(scan_results),
+                'pages_crawled': len(crawl_results),
+                'report_generated_at': datetime.now().isoformat()
+            },
+            'full_report': full_report
+        })
+        
+        logger.info(f"Report generated successfully for {parent_guid}")
+        return report_sections
+        
+    except Exception as e:
+        logger.error(f"Failed to generate report: {str(e)}")
+        raise Exception(f"Report generation failed: {str(e)}")
+
+def _parse_report_sections(full_report: str) -> Dict[str, str]:
+    """
+    Parse the generated report into structured sections
+    """
+    sections = {
+        'executive_summary': '',
+        'technical_details': '',
+        'risk_assessment': '',
+        'recommendations': '',
+        'methodology': ''
+    }
+    
+    try:
+        # Simple parsing based on common section headers
+        lines = full_report.split('\n')
+        current_section = None
+        current_content = []
+        
+        for line in lines:
+            line_lower = line.lower().strip()
+            
+            if 'executive summary' in line_lower:
+                if current_section and current_content:
+                    sections[current_section] = '\n'.join(current_content).strip()
+                current_section = 'executive_summary'
+                current_content = []
+            elif 'technical detail' in line_lower:
+                if current_section and current_content:
+                    sections[current_section] = '\n'.join(current_content).strip()
+                current_section = 'technical_details'
+                current_content = []
+            elif 'risk assessment' in line_lower:
+                if current_section and current_content:
+                    sections[current_section] = '\n'.join(current_content).strip()
+                current_section = 'risk_assessment'
+                current_content = []
+            elif 'recommendation' in line_lower:
+                if current_section and current_content:
+                    sections[current_section] = '\n'.join(current_content).strip()
+                current_section = 'recommendations'
+                current_content = []
+            elif 'methodology' in line_lower:
+                if current_section and current_content:
+                    sections[current_section] = '\n'.join(current_content).strip()
+                current_section = 'methodology'
+                current_content = []
+            else:
+                if current_section:
+                    current_content.append(line)
+        
+        # Add the last section
+        if current_section and current_content:
+            sections[current_section] = '\n'.join(current_content).strip()
+        
+        # If parsing fails, put everything in executive summary
+        if not any(sections.values()):
+            sections['executive_summary'] = full_report
+            
+    except Exception as e:
+        logger.warning(f"Failed to parse report sections: {str(e)}")
+        sections['executive_summary'] = full_report
+    
+    return sections
 
 # 사용할 OpenAI 모델 정의
 MODEL = os.getenv("OPENAI_MODEL_REPORT", "gpt-4o")
